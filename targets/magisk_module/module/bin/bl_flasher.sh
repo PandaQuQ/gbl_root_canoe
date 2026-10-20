@@ -49,6 +49,7 @@ if [ "$LANG" = "zh" ]; then
   TEXT_ALL_OK="全部完成（含efisp）"
   TEXT_ALL_OK_NO_EFISP="全部完成（不含efisp）"
   TEXT_BUSY="任务正在运行"
+  TEXT_ALREADY_PROCESSED="当前槽与目标槽 ABL 已相同，疑似已处理过，拒绝重复刷写"
   TEXT_LOG_CLEARED="日志已清空"
 else
   TEXT_IDLE="Waiting"
@@ -84,6 +85,7 @@ else
   TEXT_ALL_OK="All done (with efisp)"
   TEXT_ALL_OK_NO_EFISP="All done (no efisp)"
   TEXT_BUSY="Task running"
+  TEXT_ALREADY_PROCESSED="Current and target ABL already match; refusing a likely duplicate flash"
   TEXT_LOG_CLEARED="Log cleared"
 fi
 
@@ -384,6 +386,7 @@ run_flash() {
   target_slot=$(other_slot "$current_slot")
   [ -z "$current_slot" ] && { write_state error "$TEXT_NO_SLOT"; exit 1; }
   [ -z "$target_slot" ] && { write_state error "$TEXT_NO_TARGET_SLOT"; exit 1; }
+
   write_state running "$TEXT_FLASHING $target_slot"
 
   abl=$(partition_path abl "$target_slot")
@@ -395,6 +398,17 @@ run_flash() {
     else
       write_state error "$TEXT_DEBUG_FAILED"
     fi
+    exit 0
+  fi
+
+  # A successful OTA-retention run copies the current (old) ABL to the target
+  # slot. Refuse to run again once both ABL partitions match: rebuilding
+  # boot.efi at that point would use the already-replaced old ABL and overwrite
+  # the correct loader created by the first run.
+  current_abl=$(partition_path abl "$current_slot")
+  if [ -f "$EFISP_DIR/boot.efi" ] && cmp -s "$current_abl" "$abl"; then
+    write_log "$TEXT_ALREADY_PROCESSED ($current_slot -> $target_slot)"
+    write_state error "$TEXT_ALREADY_PROCESSED"
     exit 0
   fi
 

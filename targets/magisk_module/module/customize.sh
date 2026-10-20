@@ -76,6 +76,7 @@ if [ "$LANG" = "zh" ]; then
   T_DONE_YES="安装完成，请重启到recovery进行格式化，格式化后请安装一次这个模块来完成安装，这时选否"
   T_SEL_NO="选择了否，正在安装OTA更新模块"
   T_DONE_NO="安装完成，请重启系统即可"
+  T_EXISTING_INSTALL="检测到已有 persist/efisp/boot.efi，自动按非首次安装处理并跳过启动分区写入"
 else
   T_VERIFY="- Verifying device model"
   T_DEVICE_OK="- Device verified:"
@@ -115,6 +116,7 @@ else
   T_DONE_YES="Install complete. Reboot to recovery and format data, then reinstall module and choose NO"
   T_SEL_NO="Selected NO, installing OTA update patch"
   T_DONE_NO="Install complete, please reboot"
+  T_EXISTING_INSTALL="Existing persist/efisp/boot.efi detected; treating this as an update and skipping boot-partition writes"
 fi
 
 ui_print "$T_VERIFY"
@@ -193,6 +195,17 @@ ui_print "$T_EFISP_TITLE"
 ui_print "$T_SOC"
 ui_print "$T_CHECK_EXP"
 current_slot=$(detect_current_slot)
+
+# A module update on an existing BDS install must never enter the destructive
+# fresh-install path because of an accidental Volume Up press. A real boot.efi
+# is a stronger signal than the directory alone, which may be left by a partial
+# or failed install.
+if grep -q " $PERSIST_MNT " /proc/mounts && [ -s "$EFISP_DIR/boot.efi" ]; then
+  ui_print "$T_EXISTING_INSTALL"
+  ui_print "$T_DONE_NO"
+  rm -rf "$RUNTIME_DIR" "$MODPATH/ablrepo"
+  exit 0
+fi
 
 ui_print "$T_INSTALL_CHOICE"
 ui_print "$T_VOL_UP"
