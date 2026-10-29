@@ -1,7 +1,9 @@
 # TB323FU / gbl_root_canoe STRB 目标识别与构建安全门 V3
 
-基于用户提供的 `gbl_root_canoe` 源码提交 `e3f935c4db212495c9eac219cee6f6badea65641`。
+本文档与相关工具位于仓库的 `submodules/patcher/`。基于 `gbl_root_canoe` 源码提交 `e3f935c4db212495c9eac219cee6f6badea65641`。
 **这是离线工程验证包，不是经过实机验证的假回锁版本。** 不会刷写任何设备分区，也不会把候选 STRB 判定自动升格为安全放行。
+
+**约定**：下文命令均以 `submodules/patcher/` 为当前工作目录（先 `cd submodules/patcher`）。
 
 ## 本次实现
 
@@ -28,44 +30,52 @@
 
 ## Windows 使用
 
-安装 Python 3 和 LLVM（保证 `llvm-objdump.exe` 在 PATH）。编译 C 补丁器另需 MinGW-w64（`x86_64-w64-mingw32-gcc` 在 PATH）。源码包内 `build_windows.bat` 使用 Windows CRLF。
+本目录为仓库内的 `submodules/patcher/`。安装 Python 3 和 LLVM（保证 `llvm-objdump.exe` 在 PATH）。编译 C 补丁器另需 MinGW-w64（`x86_64-w64-mingw32-gcc` 在 PATH）。`build_windows.bat` 使用 Windows CRLF。
 
-在 PowerShell 中进入解压目录：
+在 PowerShell 中先进入本目录，再执行：
 
 ```powershell
+cd submodules\patcher
 .\build_windows.bat
-py -3 .\tools\safe_build.py "C:\Users\Admin\Desktop\tk\LinuxLoader_a.efi" --patcher .\patcher\patch_abl_safe.exe --out .\reports
-py -3 .\tools\safe_build.py "C:\Users\Admin\Desktop\tk\LinuxLoader_b.efi" --patcher .\patcher\patch_abl_safe.exe --out .\reports
+py -3 .\tools\safe_build.py "C:\Users\Admin\Desktop\tk\LinuxLoader_a.efi" --patcher .\patch_abl_safe.exe --out .\reports
+py -3 .\tools\safe_build.py "C:\Users\Admin\Desktop\tk\LinuxLoader_b.efi" --patcher .\patch_abl_safe.exe --out .\reports
 py -3 -m unittest discover -s tests -v
 ```
 
 可单独运行目标自动发现：
 
 ```powershell
+cd submodules\patcher
 py -3 .\tools\strb_trace.py "C:\path\to\LinuxLoader_b.efi" --out .\reports\trace_b.json
 ```
 
-**注意**：Windows 交叉编译脚本已编写，未在本环境的 Windows/MSYS2 下实机编译；这里真正编译并执行验证的是 Linux 版本。构建输出文件名 `patch_abl_safe.exe` 并不表示“假回锁安全认证”。
+**注意**：Windows 交叉编译脚本已编写，未在本环境的 Windows/MSYS2 下实机编译；这里真正编译并执行验证的是 Linux 版本。构建输出文件名 `patch_abl_safe.exe`（生成于本目录）并不表示“假回锁安全认证”。
 
 ## Linux 使用
 
+以下命令均在仓库根目录先 `cd submodules/patcher` 后执行（或直接在本目录打开终端）：
+
 ```bash
-make -C patcher build
+cd submodules/patcher
+make build
 python3 -m unittest discover -s tests -v
-python3 tools/safe_build.py /path/LinuxLoader_a.efi --patcher patcher/build/patch_abl --out reports
-python3 tools/safe_build.py /path/LinuxLoader_b.efi --patcher patcher/build/patch_abl --out reports
+python3 tools/safe_build.py /path/LinuxLoader_a.efi --patcher build/patch_abl --out reports
+python3 tools/safe_build.py /path/LinuxLoader_b.efi --patcher build/patch_abl --out reports
 ```
 
 如果要运行真实镜像回归，可提供环境变量 `EFI_A`、`EFI_B`、`PATCHER_BIN`，参见 `tests/test_real_images.py`。
 
 ## 文件结构
 
-- `patcher/`：从指定提交提取的 C 补丁器完整构建子项目，带失败关闭修复；`build/patch_abl` 是在 Linux 编译的版本。
+本 README 位于仓库的 `submodules/patcher/`（以下路径均相对本目录）：
+
+- `src/`、`include/`、`Makefile`：带失败关闭修复的 C 补丁器源码；Linux 构建产物为 `build/patch_abl`（`build/` 已 gitignore，需本地编译）。
+- `build_windows.bat`：MinGW 交叉编译脚本，成功时在本目录生成 `patch_abl_safe.exe`。
 - `patches/patcher_fail_closed.patch`：针对原始提交的可审查差异补丁。
 - `tools/strb_trace.py`：只读 CFG 自动发现/内存别名诊断工具。
 - `tools/safe_build.py`：离线分析 + 临时构建安全门；默认永不放行刷写。
 - `tests/`：17 个测试（其中 1 个真实镜像集成测试在未提供样本路径时跳过）。
-- `reports/`：本次真实设备镜像的离线测试、C 补丁器日志与 JSON 报告。
+- `reports/`：**本地生成**的诊断输出目录（JSON / 日志），默认不提交进仓库；运行 `safe_build.py --out reports` 时创建。
 
 ## 尚未完成／无法从离线材料认定
 
