@@ -1,0 +1,42 @@
+--- a/submodules/patcher/src/arm64_inst/utils.c
++++ b/submodules/patcher/src/arm64_inst/utils.c
+@@ -32,7 +32,7 @@
+ 
+ void locset_print(const LocSet* s) {
+     if (s->count == 0) {
+-        printf("WARRNING: LocSet empty, using fallback. Will Match any LDRB\n");
++        printf("LocSet empty: no STRB fallback allowed; unresolved provenance\n");
+         return;
+     }
+     printf("  LocSet{");
+@@ -265,7 +265,7 @@
+         case INST_STRB_POST:
+         case INST_STRB_PRE: {
+             StrbInfo si = decode_any_strb(d.raw);
+-            if (si.valid && (locset_has_reg(&set, (int8_t)si.rt)||(locset_empty(&set)&&off > ancher_offset))) {
++            if (si.valid && locset_has_reg(&set, (int8_t)si.rt)) {
+                 //typedef int32_t (*ForwardCallback)(char* buffer, int32_t size, int32_t now_offset, DecodedInst d, int32_t ancher_offset);
+                 int32_t cb_result = callback(buffer, size, off, d, ancher_offset);
+                 if (cb_result!=NEED_MORE) return cb_result;
+--- a/submodules/patcher/src/patchs/core.c
++++ b/submodules/patcher/src/patchs/core.c
+@@ -96,7 +96,7 @@
+     #endif
+     #ifndef DISABLE_PATCH_5
+     int32_t fwd = track_forward_patch_strb(buffer, size, now_offset, current_target, anchor_offset);
+-    if (fwd <= 0) {
++    if (fwd != SUCCESS) {
+         printf("Warning: sink STRB not found after anchor 0x%X\n", anchor_offset);
+         return -1;
+     }
+@@ -200,8 +200,9 @@
+ 
+     int32_t global_var_offset = -1;
+     if (find_ldrB_instructio_reverse(data, size, offset, lock_register_num, &global_var_offset, source_callback) != 0) {
+-        printf("Warning: Failed to patch LDRB->STRB chain for W%d\n",
++        printf("ERROR: Unverified LDRB->STRB chain for W%d: refusing output\n",
+                (int)lock_register_num);
++        return false;
+     }
+     printf("Global variable offset (for warning patch): 0x%X\n", global_var_offset);
+     // ===================== 启用去黄字补丁 =====================
