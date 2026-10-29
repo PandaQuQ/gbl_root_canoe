@@ -32,7 +32,7 @@ bool locset_empty(const LocSet* s) { return s->count == 0; }
 
 void locset_print(const LocSet* s) {
     if (s->count == 0) {
-        printf("WARRNING: LocSet empty, using fallback. Will Match any LDRB\n");
+        printf("LocSet empty: no STRB fallback allowed; unresolved provenance\n");
         return;
     }
     printf("  LocSet{");
@@ -265,7 +265,7 @@ int32_t track_forward(char* buffer, int32_t size, int32_t start_offset,
         case INST_STRB_POST:
         case INST_STRB_PRE: {
             StrbInfo si = decode_any_strb(d.raw);
-            if (si.valid && (locset_has_reg(&set, (int8_t)si.rt)||(locset_empty(&set)&&off > ancher_offset))) {
+            if (si.valid && locset_has_reg(&set, (int8_t)si.rt)) {
                 //typedef int32_t (*ForwardCallback)(char* buffer, int32_t size, int32_t now_offset, DecodedInst d, int32_t ancher_offset);
                 int32_t cb_result = callback(buffer, size, off, d, ancher_offset);
                 if (cb_result!=NEED_MORE) return cb_result;

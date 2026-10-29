@@ -200,8 +200,9 @@ bool PatchBuffer(char* data, int32_t size) {
 
     int32_t global_var_offset = -1;
     if (find_ldrB_instructio_reverse(data, size, offset, lock_register_num, &global_var_offset, source_callback) != 0) {
-        printf("Warning: Failed to patch LDRB->STRB chain for W%d\n",
+        printf("ERROR: Unverified LDRB->STRB chain for W%d: refusing output\n",
                (int)lock_register_num);
+        return false;
     }
     printf("Global variable offset (for warning patch): 0x%X\n", global_var_offset);
     // ===================== 启用去黄字补丁 =====================
